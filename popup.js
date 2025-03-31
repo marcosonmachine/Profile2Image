@@ -10,28 +10,28 @@ document.getElementById("generate").addEventListener("click", async () => {
 document.addEventListener("DOMContentLoaded", async () => {
   let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  // Check if the URL matches a VK profile pattern
+  // Extract username from tab URL
   const vkProfileRegex = /^https?:\/\/vk\.(com|ru)\/([A-Za-z0-9_.-]+)$/;
   const match = tab.url.match(vkProfileRegex);
-  console.log(match);
+  const username = match ? match[2] : "Unknown";
 
-  if (match) {
-    // Inject content script to scrape name
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      function: getVKProfileData,
-    });
-  }
+  // Inject script to scrape name and last seen
+  chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    function: getVKProfileData,
+    args: [username], // Pass username to the function
+  });
 });
 
-// Function to update UI with extracted name
-
+// Function to update UI with extracted name and status
 chrome.runtime.onMessage.addListener((request) => {
-  if (request.action === "updateUI" && request.username && request.fullname) {
+  if (request.action === "updateUI") {
     document.querySelector(".content").innerHTML = `
       <strong>${request.fullname}</strong>
       <br>
       <small style="color: #6b6b57;">${request.lastSeen}</small>
+      <br>
+      <small style="color: #a6a6a6;">@${request.username}</small>
     `;
   }
 });
