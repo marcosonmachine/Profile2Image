@@ -1,10 +1,10 @@
 document.getElementById("generate").addEventListener("click", async () => {
-  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    files: ["content.js"],
+  let [tab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
   });
-  console.log(tab);
+
+  extractAndSendData();
 });
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -16,11 +16,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const username = match ? match[2] : "Unknown";
 
   // Inject script to scrape name and last seen
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    function: getVKProfileData,
-    args: [username], // Pass username to the function
-  });
+  if (match) {
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: getVKProfileData,
+      args: [username], // Pass username to the function
+    });
+  }
 });
 
 // Function to update UI with extracted name and status
@@ -60,4 +62,51 @@ function getVKProfileData() {
     fullname: fullname,
     lastSeen: lastSeen,
   });
+}
+
+// Function to extract posts, generate XML & open ChatGPT
+function extractAndSendData() {
+  const xmlOutput = generateXML(); // Generate XML prompt
+
+  chrome.storage.local.set({ generatedPrompt: xmlOutput }, () => {
+    chrome.runtime.sendMessage({ action: "insertPromptToChatGPT" });
+  });
+}
+
+// Function to escape XML characters
+function escapeXml(unsafe) {
+  return unsafe.replace(
+    /[<>&'"]/g,
+    (c) =>
+      ({
+        "<": "&lt;",
+        ">": "&gt;",
+        "&": "&amp;",
+        "'": "&apos;",
+        '"': "&quot;",
+      })[c],
+  );
+}
+
+// Function to extract posts & generate XML (isolated scope)
+function generateXML() {
+  let posts = [];
+  document.querySelectorAll(".PostContentContainer").forEach((div) => {
+    let text = div.innerText.trim();
+    if (text) {
+      posts.push(`<post>${escapeXml(text)}</post>`);
+    }
+  });
+
+  return `
+  <?xml version="1.0" encoding="UTF-8"?>
+  <MCP_PostData>
+    <Posts>
+      ${posts.join("\n      ")}
+    </Posts>
+    <ImagePrompt>
+      Using the following posts, generate an AI-powered visual representation of this individual.
+    </ImagePrompt>
+  </MCP_PostData>
+  `.trim();
 }
