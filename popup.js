@@ -4,6 +4,7 @@ document.getElementById("generate").addEventListener("click", async () => {
     target: { tabId: tab.id },
     files: ["content.js"],
   });
+  console.log(tab);
 });
 
 document.addEventListener("DOMContentLoaded", async () => {
